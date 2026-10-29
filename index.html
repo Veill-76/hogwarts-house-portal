@@ -224,37 +224,101 @@ async function loadHouseScores() {
         ).join("");
     }
 
-    function addPoints() {
-      const house = document.getElementById("house").value;
-      const points = Number(document.getElementById("amount").value);
-      const student = document.getElementById("student").value.trim();
-      const reason = document.getElementById("reason").value.trim();
+    
+async function addPoints() {
+  const house = document.getElementById("house").value;
+  const points = Number(document.getElementById("amount").value);
+  const student = document.getElementById("student").value.trim();
+  const reason = document.getElementById("reason").value.trim();
 
-      if (!Number.isFinite(points) || points === 0 || !reason) {
-        alert("请输入非零积分变化和原因。");
-        return;
-      }
+  if (
+    !Object.prototype.hasOwnProperty.call(scores, house) ||
+    !Number.isFinite(points) ||
+    !Number.isInteger(points) ||
+    points === 0 ||
+    !reason
+  ) {
+    alert("请输入有效的整数积分变化和原因。");
+    return;
+  }
 
-      scores[house] += points;
-      const names = {
-        gryffindor: "Gryffindor",
-        slytherin: "Slytherin",
-        ravenclaw: "Ravenclaw",
-        hufflepuff: "Hufflepuff"
-      };
+  const button = document.querySelector(
+    'button[onclick="addPoints()"]'
+  );
 
-      history.unshift({
-        houseName: names[house],
-        points, student, reason,
-        date: new Date().toLocaleString()
+  if (button) button.disabled = true;
+
+  try {
+    // 查找对应学院的数据库 ID
+    const { data: houseData, error: houseError } =
+      await supabaseClient
+        .from("houses")
+        .select("id, points")
+        .eq("slug", house)
+        .single();
+
+    if (houseError) throw houseError;
+
+    // 写入积分变动记录
+    const { error: eventError } = await supabaseClient
+      .from("point_events")
+      .insert({
+        house_id: houseData.id,
+        delta: points,
+        reason: student
+          ? `${student}：${reason}`
+          : reason
       });
 
-      save();
-      render();
-      document.getElementById("amount").value = "";
-      document.getElementById("student").value = "";
-      document.getElementById("reason").value = "";
+    if (eventError) throw eventError;
+
+    // 更新学院总积分
+    const { error: updateError } = await supabaseClient
+      .from("houses")
+      .update({ points: houseData.points + points })
+      .eq("id", houseData.id);
+
+    if (updateError) {
+      alert(
+        "积分记录已保存，但更新总分失败。请检查数据库权限。"
+      );
+      await loadHouseScores();
+      return;
     }
+
+    // 更新页面显示
+    scores[house] = houseData.points + points;
+
+    const names = {
+      gryffindor: "格兰芬多",
+      slytherin: "斯莱特林",
+      ravenclaw: "拉文克劳",
+      hufflepuff: "赫奇帕奇"
+    };
+
+    history.unshift({
+      houseName: names[house],
+      points,
+      student,
+      reason,
+      date: new Date().toLocaleString()
+    });
+
+    render();
+    document.getElementById("amount").value = "";
+    document.getElementById("student").value = "";
+    document.getElementById("reason").value = "";
+
+    alert("积分记录已保存。");
+  } catch (error) {
+    console.error("保存积分失败：", error);
+    alert(
+      "保存失败，请检查 Supabase 的 RLS 权限和数据库连接。"
+    );
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
 
     function addAnnouncement() {
       const text = document.getElementById("announcement").value.trim();
