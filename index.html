@@ -156,19 +156,39 @@ const supabaseClient = window.supabase.createClient(
     };
 
     let scores = { ...defaults };
-    let history = [];
-    let announcements = [];
+let history = [];
+let announcements = [];
 
-    try {
-      scores = { ...defaults, ...JSON.parse(
-        localStorage.getItem("hogwartsScores") || "{}"
-      ) };
-      history = JSON.parse(localStorage.getItem("hogwartsHistory") || "[]");
-      announcements = JSON.parse(
-        localStorage.getItem("hogwartsAnnouncements") || "[]"
-      );
-    } catch (e) {}
+try {
+  history = JSON.parse(
+    localStorage.getItem("hogwartsHistory") || "[]"
+  );
 
+  announcements = JSON.parse(
+    localStorage.getItem("hogwartsAnnouncements") || "[]"
+  );
+} catch (e) {
+  history = [];
+  announcements = [];
+}
+async function loadHouseScores() {
+  const { data, error } = await supabaseClient
+    .from("houses")
+    .select("slug, points");
+
+  if (error) {
+    console.error("读取学院分数失败:", error.message);
+    return;
+  }
+
+  data.forEach((house) => {
+    if (Object.prototype.hasOwnProperty.call(scores, house.slug)) {
+      scores[house.slug] = house.points;
+    }
+  });
+
+  render();
+}
     function save() {
       localStorage.setItem("hogwartsScores", JSON.stringify(scores));
       localStorage.setItem("hogwartsHistory", JSON.stringify(history));
@@ -251,6 +271,7 @@ const supabaseClient = window.supabase.createClient(
     }
 
     render();
+loadHouseScores();
   </script>
 </body>
 </html>
