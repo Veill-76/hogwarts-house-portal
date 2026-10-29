@@ -1,0 +1,246 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hogwarts House Portal</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Noto Serif SC", serif;
+      color: #f7e9c5;
+      background: #101522;
+    }
+    header {
+      padding: 36px 20px;
+      text-align: center;
+      background: linear-gradient(135deg, #18233a, #342047);
+      border-bottom: 2px solid #c5a45b;
+    }
+    header h1 { margin: 0 0 12px; font-size: 32px; }
+    header p { color: #dbc99d; }
+    main { max-width: 1000px; margin: auto; padding: 24px 16px; }
+    h2 { color: #e6c777; }
+    .houses {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+      gap: 14px;
+    }
+    .house, .panel {
+      background: #1c2435;
+      border: 1px solid #4b5265;
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .house { text-align: center; }
+    .house .crest { font-size: 35px; }
+    .points { font-size: 30px; margin: 12px 0; }
+    .gryffindor { border-top: 4px solid #b74343; }
+    .slytherin { border-top: 4px solid #4c9b75; }
+    .ravenclaw { border-top: 4px solid #648bc5; }
+    .hufflepuff { border-top: 4px solid #d5b64e; }
+    .panel { margin-top: 24px; }
+    input, select, textarea {
+      width: 100%;
+      padding: 11px;
+      margin: 6px 0 12px;
+      border-radius: 6px;
+      border: 1px solid #586176;
+      background: #111827;
+      color: white;
+      font: inherit;
+    }
+    button {
+      padding: 11px 16px;
+      border: 0;
+      border-radius: 6px;
+      background: #c5a45b;
+      color: #171521;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .entry {
+      border-bottom: 1px solid #42495a;
+      padding: 12px 0;
+      overflow-wrap: anywhere;
+    }
+    .muted { color: #b9bdc9; font-size: 14px; }
+    footer { text-align: center; padding: 25px; color: #b9bdc9; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>✦ Hogwarts House Portal ✦</h1>
+    <p>Four Houses · House Points · Announcements</p>
+    <p>魔法永存，荣耀属于学院</p>
+  </header>
+
+  <main>
+    <h2>🏰 学院积分榜</h2>
+    <section class="houses">
+      <div class="house gryffindor">
+        <div class="crest">🦁</div>
+        <h3>Gryffindor</h3>
+        <div class="points" id="gryffindor">0</div>
+        <div class="muted">格兰芬多</div>
+      </div>
+      <div class="house slytherin">
+        <div class="crest">🐍</div>
+        <h3>Slytherin</h3>
+        <div class="points" id="slytherin">0</div>
+        <div class="muted">斯莱特林</div>
+      </div>
+      <div class="house ravenclaw">
+        <div class="crest">🦅</div>
+        <h3>Ravenclaw</h3>
+        <div class="points" id="ravenclaw">0</div>
+        <div class="muted">拉文克劳</div>
+      </div>
+      <div class="house hufflepuff">
+        <div class="crest">🦡</div>
+        <h3>Hufflepuff</h3>
+        <div class="points" id="hufflepuff">0</div>
+        <div class="muted">赫奇帕奇</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>📜 学院加扣分记录</h2>
+      <p class="muted">演示版本：记录暂存在当前浏览器。</p>
+      <label for="house">选择学院</label>
+      <select id="house">
+        <option value="gryffindor">Gryffindor</option>
+        <option value="slytherin">Slytherin</option>
+        <option value="ravenclaw">Ravenclaw</option>
+        <option value="hufflepuff">Hufflepuff</option>
+      </select>
+      <label for="student">学生姓名（选填）</label>
+      <input id="student" placeholder="输入学生姓名">
+      <label for="amount">积分变化（扣分请填负数）</label>
+      <input id="amount" type="number" placeholder="例如：10 或 -5">
+      <label for="reason">原因</label>
+      <input id="reason" placeholder="例如：活动表现优秀">
+      <button onclick="addPoints()">提交积分</button>
+      <div id="history"></div>
+    </section>
+
+    <section class="panel">
+      <h2>📢 学院公告</h2>
+      <label for="announcement">公告内容</label>
+      <textarea id="announcement" rows="3" placeholder="输入学院公告"></textarea>
+      <button onclick="addAnnouncement()">发布公告</button>
+      <div id="announcements"></div>
+    </section>
+  </main>
+
+  <footer>Hogwarts House Portal · Mischief Managed ✦</footer>
+
+  <script>
+    const defaults = {
+      gryffindor: 0,
+      slytherin: 0,
+      ravenclaw: 0,
+      hufflepuff: 0
+    };
+
+    let scores = { ...defaults };
+    let history = [];
+    let announcements = [];
+
+    try {
+      scores = { ...defaults, ...JSON.parse(
+        localStorage.getItem("hogwartsScores") || "{}"
+      ) };
+      history = JSON.parse(localStorage.getItem("hogwartsHistory") || "[]");
+      announcements = JSON.parse(
+        localStorage.getItem("hogwartsAnnouncements") || "[]"
+      );
+    } catch (e) {}
+
+    function save() {
+      localStorage.setItem("hogwartsScores", JSON.stringify(scores));
+      localStorage.setItem("hogwartsHistory", JSON.stringify(history));
+      localStorage.setItem(
+        "hogwartsAnnouncements", JSON.stringify(announcements)
+      );
+    }
+
+    function safeText(value) {
+      const div = document.createElement("div");
+      div.textContent = value;
+      return div.innerHTML;
+    }
+
+    function render() {
+      Object.keys(defaults).forEach(h => {
+        document.getElementById(h).textContent = scores[h];
+      });
+
+      document.getElementById("history").innerHTML = history.map(item =>
+        '<div class="entry"><strong>' + safeText(item.houseName) +
+        '</strong> · ' + item.points + ' points<br>' +
+        safeText(item.student || "未填写姓名") + ' — ' +
+        safeText(item.reason) + '<div class="muted">' +
+        safeText(item.date) + '</div></div>'
+      ).join("");
+
+      document.getElementById("announcements").innerHTML =
+        announcements.map(item =>
+          '<div class="entry">' + safeText(item.text) +
+          '<div class="muted">' + safeText(item.date) +
+          '</div></div>'
+        ).join("");
+    }
+
+    function addPoints() {
+      const house = document.getElementById("house").value;
+      const points = Number(document.getElementById("amount").value);
+      const student = document.getElementById("student").value.trim();
+      const reason = document.getElementById("reason").value.trim();
+
+      if (!Number.isFinite(points) || points === 0 || !reason) {
+        alert("请输入非零积分变化和原因。");
+        return;
+      }
+
+      scores[house] += points;
+      const names = {
+        gryffindor: "Gryffindor",
+        slytherin: "Slytherin",
+        ravenclaw: "Ravenclaw",
+        hufflepuff: "Hufflepuff"
+      };
+
+      history.unshift({
+        houseName: names[house],
+        points, student, reason,
+        date: new Date().toLocaleString()
+      });
+
+      save();
+      render();
+      document.getElementById("amount").value = "";
+      document.getElementById("student").value = "";
+      document.getElementById("reason").value = "";
+    }
+
+    function addAnnouncement() {
+      const text = document.getElementById("announcement").value.trim();
+      if (!text) {
+        alert("请先输入公告内容。");
+        return;
+      }
+      announcements.unshift({
+        text, date: new Date().toLocaleString()
+      });
+      save();
+      render();
+      document.getElementById("announcement").value = "";
+    }
+
+    render();
+  </script>
+</body>
+</html>
